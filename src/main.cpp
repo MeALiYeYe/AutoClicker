@@ -3,6 +3,7 @@
 //  Creates the MainWindow instance and runs the message loop.
 // =============================================================================
 
+#include "common.h"
 #include "ui/MainWindow.h"
 #include "resource.h"
 

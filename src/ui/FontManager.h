@@ -5,6 +5,7 @@
 // =============================================================================
 
 #include <windows.h>
+#include <initializer_list>
 #include "Theme.h"
 
 class FontManager

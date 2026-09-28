@@ -10,6 +10,9 @@
 #include <memory>
 #include <thread>
 #include <functional>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include "ClickSettings.h"
 #include "ClickStrategy.h"

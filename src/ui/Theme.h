@@ -4,6 +4,9 @@
 //  All dimensions in pixels; designed for a 420x640 window.
 // =============================================================================
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 
 namespace Theme
