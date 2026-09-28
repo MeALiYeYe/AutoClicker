@@ -68,7 +68,7 @@ namespace Theme
     constexpr COLORREF CLR_GRADIENT_END   = RGB(30, 80, 180);
 
     // ---- Fonts ----
-    inline constexpr const wchar_t* FONT_TITLE   = L"Microsoft YaHei UI";
+    inline constexpr const wchar_t* FONT_TITLE   = L"Microsoft YaHei UI Bold";
     inline constexpr const wchar_t* FONT_CONTENT = L"Microsoft YaHei UI";
     inline constexpr const wchar_t* FONT_MONO    = L"Consolas";
 
