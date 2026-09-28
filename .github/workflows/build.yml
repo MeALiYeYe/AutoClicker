@@ -23,18 +23,22 @@ jobs:
     - name: Build Release Win32
       run: msbuild AutoClicker.sln /p:Configuration=Release /p:Platform=Win32 /m /verbosity:minimal
 
-    - name: List build outputs
+    - name: Find and copy build outputs
+      shell: pwsh
       run: |
-        echo "=== x64 ==="
-        dir x64\Release\AutoClicker.exe
-        echo "=== Win32 ==="
-        dir Win32\Release\AutoClicker.exe
-
-    - name: Prepare release artifacts
-      run: |
-        mkdir release
-        copy x64\Release\AutoClicker.exe release\AutoClicker-x64.exe
-        copy Win32\Release\AutoClicker.exe release\AutoClicker-x86.exe
+        Write-Host "=== Searching for build outputs ==="
+        $x64exe = Get-ChildItem -Path . -Recurse -Filter "AutoClicker.exe" | Where-Object { $_.FullName -match "x64" }
+        $x86exe = Get-ChildItem -Path . -Recurse -Filter "AutoClicker.exe" | Where-Object { $_.FullName -match "Win32" }
+        
+        Write-Host "x64 exe: $($x64exe.FullName)"
+        Write-Host "x86 exe: $($x86exe.FullName)"
+        
+        New-Item -ItemType Directory -Force -Path release
+        if ($x64exe) { Copy-Item $x64exe.FullName release\AutoClicker-x64.exe }
+        if ($x86exe) { Copy-Item $x86exe.FullName release\AutoClicker-x86.exe }
+        
+        Write-Host "=== Release directory ==="
+        dir release\
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
