@@ -1,0 +1,75 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build Release x64
+      run: msbuild AutoClicker.sln /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+
+    - name: Build Release Win32
+      run: msbuild AutoClicker.sln /p:Configuration=Release /p:Platform=Win32 /m /verbosity:minimal
+
+    - name: List build outputs
+      run: |
+        echo "=== x64 ==="
+        dir x64\Release\AutoClicker.exe
+        echo "=== Win32 ==="
+        dir Win32\Release\AutoClicker.exe
+
+    - name: Prepare release artifacts
+      run: |
+        mkdir release
+        copy x64\Release\AutoClicker.exe release\AutoClicker-x64.exe
+        copy Win32\Release\AutoClicker.exe release\AutoClicker-x86.exe
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: AutoClicker-build
+        path: release\*.exe
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          release/AutoClicker-x64.exe
+          release/AutoClicker-x86.exe
+        name: AutoClicker ${{ github.ref_name }}
+        body: |
+          ## AutoClicker ${{ github.ref_name }}
+
+          ### 下载
+
+          - **AutoClicker-x64.exe** - 64位版本（推荐）
+          - **AutoClicker-x86.exe** - 32位版本
+
+          ### 功能
+
+          - 多种点击模式（左键/右键/中键/双击/滚轮）
+          - 多坐标点独立间隔点击
+          - 固定/随机偏移频率
+          - 范围随机抖动
+          - 按次数/时长/无限循环
+          - 防沉迷定时休息
+          - 配置方案保存/加载
+          - 全局热键一键启停
+          - 系统托盘最小化
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
