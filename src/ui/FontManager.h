@@ -36,9 +36,9 @@ public:
         if (hFontSmall)   DeleteObject(hFontSmall);
     }
 
-    HFONT title()   const { return hFontTitle; }
-    HFONT content() const { return hFontContent; }
-    HFONT small()   const { return hFontSmall; }
+    HFONT title()     const { return hFontTitle; }
+    HFONT content()   const { return hFontContent; }
+    HFONT smallFont() const { return hFontSmall; }
 
     // Convenience: apply a font to a control.
     static void apply(HWND hCtrl, HFONT hFont)

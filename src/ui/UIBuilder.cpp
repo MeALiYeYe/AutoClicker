@@ -15,7 +15,7 @@ UIControls UIBuilder::build(HWND hWnd, const FontManager& fonts)
 
     HFONT hTitle   = fonts.title();
     HFONT hContent = fonts.content();
-    HFONT hSmall   = fonts.small();
+    HFONT hSmall   = fonts.smallFont();
 
     int y = Theme::MARGIN_Y;
 
