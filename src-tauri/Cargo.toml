@@ -1,0 +1,37 @@
+[package]
+name = "autoclicker"
+version = "3.0.0"
+description = "AutoClicker - Windows auto clicker with DPI-aware modern UI"
+authors = ["MeALiYeYe"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "autoclicker_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-ico", "image-png"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+parking_lot = "0.12"
+rand = "0.8"
+
+[dependencies.windows]
+version = "0.58"
+features = [
+    "Win32_Foundation",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

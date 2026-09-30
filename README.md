@@ -1,102 +1,74 @@
-# AutoClicker - Windows 自动点击工具
+# AutoClicker
 
-一个功能丰富的 Windows 鼠标自动点击工具，使用 C++ 和 Win32 API 开发。
+一个用于 Windows 的自动点击器。v3.0 起使用 **Tauri 2（Rust + WebView2）** 重写，
+彻底解决了旧版在高分屏上字体发虚、控件错位的问题。
 
-## 功能特性
+## 为什么重写
 
-- **多种点击模式**：左键/右键/中键单击、双击、滚轮上下滚动
-- **多坐标点点击**：支持添加多个坐标点，每个点可设置独立间隔
-- **点击频率**：固定间隔 或 固定+随机偏移
-- **点击位置**：坐标位置 / 指针跟随 / 范围随机抖动
-- **循环模式**：按次数 / 按时长 / 无限循环
-- **防沉迷**：可设置定时休息
-- **配置管理**：保存/加载/删除多个配置方案（INI 持久化）
-- **全局热键**：可自定义热键一键启停（默认 F6）
-- **系统托盘**：最小化到托盘，右键菜单操作
-- **进度条**：实时显示循环进度
+旧版是纯 Win32 + GDI 实现。GDI 是位图光栅渲染器，没有亚像素布局，也不具备
+现代 DPI 感知能力；在 150% / 200% 缩放下，窗口会被系统位图拉伸，表现为：
 
-## 架构设计
+- 字体发虚模糊
+- 控件大小与布局错乱
+- 跨不同 DPI 显示器移动窗口时不重新布局
 
-本项目采用 C++ 面向对象设计，实现了**封装、继承、多态**三大特性：
+新版改用 WebView2 渲染界面：
 
-### 多态 (Polymorphism)
-- `ClickStrategy` 抽象基类定义统一的 `execute()` 接口
-- 7 种具体策略类（左键、右键、双击、滚轮等）各自实现点击逻辑
-- `ClickEngine` 通过基类指针统一调度，无需关心具体类型
+- **矢量渲染 + Per-Monitor v2 DPI 感知** — 文字在任何缩放比例下都是原生清晰度
+- 窗口跨屏移动时实时重排，布局始终正确
+- 界面用 CSS 实现圆角、阴影、平滑过渡与深色 / 浅色主题
 
-### 继承 (Inheritance)
-- `LeftClickStrategy`、`RightClickStrategy` 等全部继承自 `ClickStrategy`
-- 共享基类的接口定义，各自覆写 `execute()` 方法
+## 功能
 
-### 封装 (Encapsulation)
-- `MainWindow` 封装窗口生命周期、消息分发和所有 UI 控件
-- `ClickEngine` 封装后台线程和调度逻辑
-- `TrayIconManager` 封装系统托盘图标
-- `HotkeyManager` 封装热键注册和捕获
-- `ProfileManager` 封装配置持久化
-- `FontManager` / `ProgressBar` 封装资源管理
+- **点击频率**：固定间隔，或围绕基准值上下随机浮动（防检测）
+- **点击位置**：坐标位置 / 指针位置 / 顺序循环 / 随机循环，支持范围随机抖动
+- **多点点击**：每个坐标可单独设置间隔
+- **重复次数**：无限制 / 按次数 / 按时长
+- **防沉迷休息**：工作一段时间后自动暂停休息
+- **点击方式**：左键 / 右键 / 中键 / 滚轮上 / 滚轮下，单击或双击
+- **配置方案**：保存、加载、删除多套配置
+- **全局热键**：一键启停（默认 F6，可自定义）
+- **系统托盘**：最小化到托盘，托盘菜单快速控制
 
-### 文件结构
+## 开发
 
-```
-AutoClicker/
-├── .github/workflows/build.yml   # GitHub Actions CI/CD
-├── src/
-│   ├── main.cpp                  # 程序入口
-│   ├── resource.h                # 资源头文件
-│   ├── app.rc                    # 资源文件
-│   ├── core/                     # 核心逻辑
-│   │   ├── ClickStrategy.h       # 抽象基类（多态）
-│   │   ├── ClickStrategies.h     # 具体策略（继承）
-│   │   ├── ClickPoint.h          # 坐标点数据模型
-│   │   ├── ClickSettings.h       # 设置数据模型
-│   │   ├── ClickEngine.h/cpp     # 点击引擎（封装）
-│   ├── ui/                       # 界面层
-│   │   ├── Theme.h               # 布局/颜色/字体常量
-│   │   ├── FontManager.h         # 字体管理（封装）
-│   │   ├── ProgressBar.h         # 自绘进度条
-│   │   ├── UIBuilder.h/cpp       # UI 构建
-│   │   └── MainWindow.h/cpp      # 主窗口（封装）
-│   ├── utils/                    # 工具层
-│   │   ├── TrayIconManager.h     # 系统托盘
-│   │   ├── HotkeyManager.h       # 热键管理
-│   │   └── ProfileManager.h      # 配置管理
-│   └── resources/
-│       ├── app.ico               # 应用图标
-│       └── small.ico             # 小图标
-├── AutoClicker.sln               # VS 解决方案
-└── AutoClicker.vcxproj           # VS 项目文件
-```
+需要 Rust 工具链与 WebView2 运行时（Windows 10/11 自带）。
 
-## 编译
-
-### 使用 Visual Studio
-1. 打开 `AutoClicker.sln`
-2. 选择 `Release | x64` 配置
-3. 生成解决方案
-
-### 使用命令行 (MSBuild)
 ```bash
-msbuild AutoClicker.sln /p:Configuration=Release /p:Platform=x64
+# 开发模式（热重载前端）
+cargo tauri dev
+
+# 构建发布包
+cargo tauri build
 ```
 
-生成的 exe 位于 `x64/Release/AutoClicker.exe`
+前端是纯静态的 HTML / CSS / JS，位于 `src/`，**无需 npm 构建步骤**。
+它通过 Tauri 全局 API（`window.__TAURI__`）与 Rust 后端通信。
 
-## 使用方法
+### 目录结构
 
-1. 运行 `AutoClicker.exe`
-2. 设置点击频率、位置、方式等参数
-3. 点击"点选坐标"可在屏幕上选取多个点击位置
-4. 按 F6（或自定义热键）开始/暂停点击
-5. 可保存配置方案供下次使用
+```
+src/                 前端（index.html / styles.css / app.js）
+src-tauri/
+  src/
+    main.rs          入口
+    lib.rs           Tauri shell：命令、托盘、坐标拾取钩子
+    engine.rs        点击引擎（间隔 / 位置 / 限制 / 防沉迷）
+    input.rs         SendInput 鼠标模拟
+    hotkey.rs        全局热键（RegisterHotKey）
+    settings.rs      设置数据结构
+    storage.rs       配置持久化（%APPDATA%\AutoClicker\config.json）
+  icons/             应用图标
+  tauri.conf.json    应用配置
+legacy-cpp/          v2.x 的旧 C++ / Win32 实现，保留供参考
+```
 
-## 技术栈
+配置与配置方案保存在 `%APPDATA%\AutoClicker\config.json`。
 
-- C++17
-- Win32 API (Windows SDK)
-- MSBuild / Visual Studio 2022
-- GitHub Actions CI/CD
+## 发布
 
-## License
+推送 `v*` 标签即触发 GitHub Actions，自动构建并发布 Windows 安装包。
+
+## 许可
 
 MIT

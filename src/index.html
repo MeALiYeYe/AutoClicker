@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoClicker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- ===== 自定义标题栏 ===== -->
+    <header class="titlebar" data-tauri-drag-region>
+      <div class="titlebar-left">
+        <span class="app-logo"></span>
+        <span class="app-title">AutoClicker</span>
+        <span class="app-version">v3.0</span>
+      </div>
+      <div class="titlebar-actions">
+        <button class="win-btn" id="btn-min" title="最小化" aria-label="最小化">
+          <svg viewBox="0 0 10 10"><line x1="0" y1="5" x2="10" y2="5"/></svg>
+        </button>
+        <button class="win-btn win-close" id="btn-close" title="关闭" aria-label="关闭">
+          <svg viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10"/><line x1="10" y1="0" x2="0" y2="10"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== 主体内容 ===== -->
+    <main class="content" id="content">
+
+      <!-- 点击频率 -->
+      <section class="card">
+        <h2 class="card-title">点击频率</h2>
+        <div class="field-row">
+          <label class="radio">
+            <input type="radio" name="freq" value="fixed" checked />
+            <span class="radio-mark"></span>
+            <span class="radio-label">固定 (ms)</span>
+          </label>
+          <input type="number" id="interval-fixed" class="input" value="1000" min="1" step="1" />
+        </div>
+        <div class="field-row">
+          <label class="radio">
+            <input type="radio" name="freq" value="random" />
+            <span class="radio-mark"></span>
+            <span class="radio-label">偏移 (ms)</span>
+          </label>
+          <input type="number" id="interval-offset" class="input" value="200" min="0" step="1" />
+        </div>
+        <p class="hint">偏移模式会在固定间隔上下随机浮动。启用后上面的「固定」值作为基准。</p>
+      </section>
+
+      <!-- 点击位置 -->
+      <section class="card">
+        <h2 class="card-title">点击位置</h2>
+        <div class="mode-grid">
+          <label class="radio">
+            <input type="radio" name="pos" value="fixed" />
+            <span class="radio-mark"></span><span class="radio-label">坐标位置</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="pos" value="cursor" checked />
+            <span class="radio-mark"></span><span class="radio-label">指针位置</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="pos" value="sequence" />
+            <span class="radio-mark"></span><span class="radio-label">顺序循环</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="pos" value="random" />
+            <span class="radio-mark"></span><span class="radio-label">随机循环</span>
+          </label>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" id="area-random" />
+          <span class="check-mark"></span><span class="check-label">范围随机</span>
+        </label>
+        <div class="field-row">
+          <span class="inline-label">半径</span>
+          <input type="number" id="area-radius" class="input" value="20" min="0" step="1" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-soft" id="btn-pick">点选坐标</button>
+          <button class="btn btn-soft" id="btn-clear">清空坐标</button>
+        </div>
+        <p class="hint" id="pick-hint" hidden>请在屏幕上点击要记录的位置…</p>
+      </section>
+
+      <!-- 坐标列表 -->
+      <section class="card">
+        <h2 class="card-title">
+          坐标列表
+          <span class="badge" id="point-count">0</span>
+        </h2>
+        <div class="point-list" id="point-list">
+          <p class="empty" id="point-empty">暂无坐标。点击「点选坐标」添加。</p>
+        </div>
+      </section>
+
+      <!-- 重复次数 -->
+      <section class="card">
+        <h2 class="card-title">重复次数</h2>
+        <div class="field-row">
+          <label class="radio">
+            <input type="radio" name="limit" value="unlimited" checked />
+            <span class="radio-mark"></span><span class="radio-label">无限制</span>
+          </label>
+          <span class="spacer"></span>
+        </div>
+        <div class="field-row">
+          <label class="radio">
+            <input type="radio" name="limit" value="count" />
+            <span class="radio-mark"></span><span class="radio-label">次数</span>
+          </label>
+          <input type="number" id="limit-count" class="input" value="1000" min="1" step="1" />
+        </div>
+        <div class="field-row">
+          <label class="radio">
+            <input type="radio" name="limit" value="time" />
+            <span class="radio-mark"></span><span class="radio-label">时长 (s)</span>
+          </label>
+          <input type="number" id="limit-time" class="input" value="3600" min="1" step="1" />
+        </div>
+
+        <div class="divider"></div>
+
+        <label class="check">
+          <input type="checkbox" id="rest-enable" />
+          <span class="check-mark"></span><span class="check-label">防沉迷休息</span>
+        </label>
+        <div class="field-row">
+          <span class="inline-label">工作 (s)</span>
+          <input type="number" id="rest-time" class="input" value="600" min="1" step="1" />
+        </div>
+        <div class="field-row">
+          <span class="inline-label">休息 (s)</span>
+          <input type="number" id="rest-duration" class="input" value="60" min="1" step="1" />
+        </div>
+      </section>
+
+      <!-- 点击方式 -->
+      <section class="card">
+        <h2 class="card-title">点击方式</h2>
+        <div class="field-row">
+          <span class="inline-label">按键</span>
+          <select id="mouse-button" class="input select">
+            <option value="left">左键</option>
+            <option value="right">右键</option>
+            <option value="middle">中键</option>
+            <option value="wheelUp">滚轮上</option>
+            <option value="wheelDown">滚轮下</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <span class="inline-label">方式</span>
+          <select id="click-type" class="input select">
+            <option value="single">单击</option>
+            <option value="double">双击</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 配置方案 -->
+      <section class="card">
+        <h2 class="card-title">配置方案</h2>
+        <div class="field-row">
+          <input type="text" id="profile-name" class="input" placeholder="方案名称" />
+          <button class="btn btn-soft" id="btn-save">保存</button>
+        </div>
+        <div class="field-row">
+          <select id="profile-select" class="input select">
+            <option value="">— 选择方案 —</option>
+          </select>
+          <button class="btn btn-soft danger" id="btn-delete">删除</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- ===== 底部控制区 ===== -->
+    <footer class="footer">
+      <div class="control-row">
+        <button class="btn btn-primary" id="btn-toggle">
+          <span class="btn-icon" id="toggle-icon"></span>
+          <span id="toggle-text">开始</span>
+        </button>
+        <button class="btn btn-soft" id="btn-stop">停止</button>
+        <button class="btn btn-ghost hotkey-btn" id="btn-hotkey">
+          <span class="hk-label">热键</span>
+          <span class="hk-value" id="hotkey-value">F6</span>
+        </button>
+      </div>
+
+      <div class="status-row">
+        <span class="status-item">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">未启动</span>
+        </span>
+        <span class="status-sep"></span>
+        <span class="status-item" id="status-interval">间隔 —</span>
+        <span class="status-sep"></span>
+        <span class="status-item" id="status-remaining">剩余 —</span>
+      </div>
+
+      <div class="progress">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- 热键设置弹窗 -->
+  <div class="modal-mask" id="modal" hidden>
+    <div class="modal">
+      <h3 class="modal-title">设置热键</h3>
+      <p class="modal-desc">请按下要使用的按键（支持 F1–F24、0–9、A–Z）</p>
+      <div class="modal-key" id="modal-key">…</div>
+      <div class="modal-actions">
+        <button class="btn btn-soft" id="btn-cancel-hotkey">取消</button>
+        <button class="btn btn-primary" id="btn-confirm-hotkey" disabled>确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
