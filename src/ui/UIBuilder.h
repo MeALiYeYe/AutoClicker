@@ -2,12 +2,14 @@
 // =============================================================================
 //  UIBuilder.h - Builds all Win32 child controls for the main window.
 //  Populates a struct of HWND handles that MainWindow uses for interaction.
+//  All dimensions are DPI-scaled from Theme design units.
 // =============================================================================
 
 #include <windows.h>
 #include <vector>
 #include "../ui/Theme.h"
 #include "../ui/FontManager.h"
+#include "../ui/DpiHelper.h"
 #include "../core/ClickPoint.h"
 
 // All control handles grouped for clarity.
@@ -77,14 +79,19 @@ class UIBuilder
 {
 public:
     // Build the entire UI inside hWnd. Returns a populated UIControls.
+    // All dimensions are DPI-scaled from Theme design units.
     static UIControls build(HWND hWnd, const FontManager& fonts);
+
+    // Destroy all child windows of the given hWnd (for DPI relayout).
+    static void destroyAllChildren(HWND hWnd);
 
     // Create a separator line (static with SS_ETCHEDHORZ).
     static HWND createSeparator(HWND parent, int x, int y, int width);
 
     // Create a labeled coordinate row inside the container group.
+    // DPI-scaled: pass the window's current DPI.
     static void createCoordRow(UIControls& ui, int index, const ClickPoint& pt,
-                               const FontManager& fonts);
+                               const FontManager& fonts, UINT dpi);
 
     // Destroy all coordinate-row child controls and clear the vector.
     static void clearCoordRows(UIControls& ui,

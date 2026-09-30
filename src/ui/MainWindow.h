@@ -4,6 +4,7 @@
 //  Owns the window handle, UI controls, click engine, tray icon, hotkey
 //  manager, profile manager, and fonts. Dispatches Win32 messages to
 //  dedicated handler methods.
+//  DPI-aware: handles WM_DPICHANGED to rebuild the UI at new DPI.
 // =============================================================================
 
 #ifndef NOMINMAX
@@ -20,6 +21,7 @@
 #include "../ui/FontManager.h"
 #include "../ui/ProgressBar.h"
 #include "../ui/Theme.h"
+#include "../ui/DpiHelper.h"
 #include "../utils/TrayIconManager.h"
 #include "../utils/HotkeyManager.h"
 #include "../utils/ProfileManager.h"
@@ -55,6 +57,11 @@ private:
     void    onEngineInterval(WPARAM wParam);
     void    onEngineCountTime(LPARAM lParam);
     void    onEngineProgress(WPARAM wParam);
+    void    onDpiChanged(WPARAM wParam, LPARAM lParam);
+
+    // ---- DPI / UI rebuild ----
+    void    rebuildUi();          // Destroy + recreate all child controls
+    void    reloadProfilesToUi(); // Re-populate profile combo
 
     // ---- Actions ----
     void    startClicking();
@@ -82,6 +89,9 @@ private:
     HWND       m_hWnd = nullptr;
     HINSTANCE  m_hInst = nullptr;
     bool       m_hiddenToTray = false;
+
+    // ---- DPI ----
+    UINT       m_currentDpi = 96;
 
     // ---- UI ----
     UIControls       m_ui;

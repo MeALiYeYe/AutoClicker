@@ -142,6 +142,7 @@
     <ClInclude Include="src\core\ClickSettings.h" />
     <ClInclude Include="src\core\ClickEngine.h" />
     <ClInclude Include="src\ui\Theme.h" />
+    <ClInclude Include="src\ui\DpiHelper.h" />
     <ClInclude Include="src\ui\FontManager.h" />
     <ClInclude Include="src\ui\ProgressBar.h" />
     <ClInclude Include="src\ui\UIBuilder.h" />
@@ -159,6 +160,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\app.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\app.manifest" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="src\resources\app.ico" />
