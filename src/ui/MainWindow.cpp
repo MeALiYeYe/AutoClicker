@@ -1,5 +1,7 @@
 // =============================================================================
 //  MainWindow.cpp - Implementation of the main application window.
+//  DPI-aware: scales all dimensions by the current display DPI and
+//  handles WM_DPICHANGED to rebuild the UI when the DPI changes.
 // =============================================================================
 
 #include "MainWindow.h"
@@ -36,6 +38,17 @@ bool MainWindow::create(HINSTANCE hInstance, int nCmdShow)
 {
     m_hInst = hInstance;
 
+    // Get system DPI for initial window creation. The actual window DPI
+    // will be queried in onCreate() and updated via WM_DPICHANGED.
+    m_currentDpi = DpiHelper::getSystemDpi();
+
+    // Set font DPI to match.
+    m_fonts.setDpi(m_currentDpi);
+
+    // Scale window dimensions to the current DPI.
+    int wndW = DpiHelper::scale(Theme::WINDOW_WIDTH, m_currentDpi);
+    int wndH = DpiHelper::scale(Theme::WINDOW_HEIGHT, m_currentDpi);
+
     // Register window class.
     WNDCLASSEXW wc = {};
     wc.cbSize        = sizeof(WNDCLASSEXW);
@@ -54,11 +67,12 @@ bool MainWindow::create(HINSTANCE hInstance, int nCmdShow)
     RegisterClassExW(&wc);
 
     // Create window — pass `this` as lpCreateParams for WndProc to retrieve.
+    // Dimensions are DPI-scaled physical pixels.
     m_hWnd = CreateWindowExW(
         0, L"AutoClickerWnd", L"AutoClicker",
         WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX & ~WS_THICKFRAME,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        Theme::WINDOW_WIDTH, Theme::WINDOW_HEIGHT,
+        wndW, wndH,
         nullptr, nullptr, hInstance, this);
 
     if (!m_hWnd)
@@ -71,9 +85,10 @@ bool MainWindow::create(HINSTANCE hInstance, int nCmdShow)
     // Register hotkey.
     m_hotkey.registerHotkey(m_hWnd);
 
-    // Add tray icon.
+    // Add tray icon (scale 16 to current DPI).
+    int iconSize = DpiHelper::scale(16, m_currentDpi);
     HICON hTrayIcon = static_cast<HICON>(LoadImageW(
-        hInstance, MAKEINTRESOURCEW(IDI_SMALL_ICON), IMAGE_ICON, 16, 16, 0));
+        hInstance, MAKEINTRESOURCEW(IDI_SMALL_ICON), IMAGE_ICON, iconSize, iconSize, 0));
     m_tray.add(m_hWnd, hTrayIcon, L"AutoClicker");
 
     // Connect engine to our window for notifications.
@@ -94,7 +109,6 @@ int MainWindow::runMessageLoop()
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0))
     {
-        // Check if the message is a tray notification for our window.
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
@@ -153,6 +167,11 @@ LRESULT MainWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
         updateHotkeyDisplay();
         return 0;
 
+    // ---- DPI change ----
+    case WM_DPICHANGED:
+        onDpiChanged(wParam, lParam);
+        return 0;
+
     // ---- Engine notifications ----
     case WM_ENGINE_STATUS:
         onEngineStatus(lParam);
@@ -195,7 +214,16 @@ LRESULT MainWindow::handle(UINT msg, WPARAM wParam, LPARAM lParam)
 
 void MainWindow::onCreate()
 {
-    // Build the UI.
+    // Get the actual window DPI (may differ from system DPI if the window
+    // was created on a monitor with a different scaling factor).
+    UINT windowDpi = DpiHelper::getDpi(m_hWnd);
+    if (windowDpi != m_currentDpi)
+    {
+        m_currentDpi = windowDpi;
+        m_fonts.setDpi(m_currentDpi);
+    }
+
+    // Build the UI with DPI-scaled dimensions.
     m_ui = UIBuilder::build(m_hWnd, m_fonts);
 
     // Load saved profiles.
@@ -301,6 +329,82 @@ void MainWindow::onDestroy()
     PostQuitMessage(0);
 }
 
+// ---- DPI change handler ----
+
+void MainWindow::onDpiChanged(WPARAM wParam, LPARAM lParam)
+{
+    UINT newDpi = LOWORD(wParam);
+    if (newDpi == m_currentDpi)
+        return;
+
+    // Resize window to the system-suggested rectangle.
+    auto* prcNewWindow = reinterpret_cast<RECT*>(lParam);
+    SetWindowPos(m_hWnd, nullptr,
+        prcNewWindow->left, prcNewWindow->top,
+        prcNewWindow->right - prcNewWindow->left,
+        prcNewWindow->bottom - prcNewWindow->top,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+
+    // Update DPI and recreate fonts.
+    m_currentDpi = newDpi;
+    m_fonts.setDpi(newDpi);
+
+    // If the UI hasn't been built yet, nothing to rebuild.
+    // WM_CREATE will build it at the correct DPI.
+    if (m_ui.hGroupFreq == nullptr)
+        return;
+
+    // Save current UI state before rebuilding.
+    ClickSettings savedSettings = readSettingsFromUI();
+    wchar_t profileName[100] = {0};
+    if (m_ui.hComboProfiles)
+        GetWindowTextW(m_ui.hComboProfiles, profileName, 100);
+
+    // Rebuild all child controls at the new DPI.
+    rebuildUi();
+
+    // Re-populate the profile combo box.
+    reloadProfilesToUi();
+
+    // Restore UI state from saved settings.
+    SettingsProfile profile;
+    profile.name = profileName;
+    profile.settings = savedSettings;
+    loadProfileToUI(profile);
+
+    // Restore the profile combo text (loadProfileToUI doesn't set it).
+    if (m_ui.hComboProfiles)
+        SetWindowTextW(m_ui.hComboProfiles, profileName);
+
+    // Force a full redraw.
+    InvalidateRect(m_hWnd, nullptr, TRUE);
+}
+
+void MainWindow::rebuildUi()
+{
+    // Destroy all child controls.
+    UIBuilder::destroyAllChildren(m_hWnd);
+
+    // Clear click points (handles are now invalid).
+    m_clickPoints.clear();
+
+    // Reset the UIControls struct.
+    m_ui = UIControls{};
+
+    // Rebuild the UI at the current DPI.
+    m_ui = UIBuilder::build(m_hWnd, m_fonts);
+}
+
+void MainWindow::reloadProfilesToUi()
+{
+    if (!m_ui.hComboProfiles)
+        return;
+
+    SendMessageW(m_ui.hComboProfiles, CB_RESETCONTENT, 0, 0);
+    for (const auto& p : m_profileList)
+        SendMessageW(m_ui.hComboProfiles, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(p.name.c_str()));
+}
+
 // ---- Engine notification handlers ----
 
 void MainWindow::onEngineStatus(LPARAM lParam)
@@ -334,6 +438,7 @@ void MainWindow::onEngineCountTime(LPARAM lParam)
 void MainWindow::onEngineProgress(WPARAM wParam)
 {
     m_progressBar.setPercent(static_cast<int>(wParam));
+    m_progressBar.setDpi(m_currentDpi);
     if (m_ui.hProgress)
         InvalidateRect(m_ui.hProgress, nullptr, TRUE);
 }
@@ -470,6 +575,7 @@ DWORD MainWindow::getClickModeFromUI() const
 
 // ---------------------------------------------------------------------------
 //  loadProfileToUI — apply a saved profile's settings to the UI controls.
+//  Coordinate rows are created with DPI-scaled positions.
 // ---------------------------------------------------------------------------
 void MainWindow::loadProfileToUI(const SettingsProfile& profile)
 {
@@ -514,26 +620,37 @@ void MainWindow::loadProfileToUI(const SettingsProfile& profile)
     SendMessageW(m_ui.hCheckRest, BM_SETCHECK, s.enableRest ? BST_CHECKED : BST_UNCHECKED, 0);
     SetWindowTextW(m_ui.hEditRestTime, std::to_wstring(s.restTime).c_str());
 
-    // Recreate coordinate rows
+    // Recreate coordinate rows with DPI-scaled positions.
     for (const auto& pt : s.clickPoints)
     {
         ClickPoint newPt = pt;
         int index = static_cast<int>(m_clickPoints.size()) + 1;
-        int baseY = 25 + (index - 1) * 30;
+
+        // DPI-scaled positions.
+        int baseY = DpiHelper::scale(Theme::COORD_ROW_START_Y, m_currentDpi)
+                  + (index - 1) * DpiHelper::scale(Theme::COORD_ROW_STEP, m_currentDpi);
+        int labelX = DpiHelper::scale(Theme::COORD_LABEL_X, m_currentDpi);
+        int labelW = DpiHelper::scale(Theme::COORD_LABEL_W, m_currentDpi);
+        int rowH   = DpiHelper::scale(Theme::COORD_ROW_H, m_currentDpi);
+        int editX  = DpiHelper::scale(Theme::COORD_EDIT_X, m_currentDpi);
+        int editW  = DpiHelper::scale(Theme::COORD_EDIT_W, m_currentDpi);
+        int lineY  = baseY + DpiHelper::scale(Theme::COORD_LINE_Y_OFFSET, m_currentDpi);
+        int editLeftLimitRight = DpiHelper::scale(Theme::EDIT_LEFT_LIMIT_RIGHT, m_currentDpi);
+
         wchar_t buf[128];
 
         wsprintfW(buf, L"%d. (%d, %d)", index, newPt.pos.x, newPt.pos.y);
         newPt.hEditCoord = CreateWindowW(L"static", buf,
             WS_CHILD | WS_VISIBLE | SS_LEFT,
-            10, baseY, 100, 22, m_ui.hGroupPosContainer, nullptr, nullptr, nullptr);
+            labelX, baseY, labelW, rowH, m_ui.hGroupPosContainer, nullptr, nullptr, nullptr);
 
         wsprintfW(buf, L"%d", newPt.interval);
         newPt.hEditInterval = CreateWindowW(L"edit", buf,
             WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER,
-            130, baseY, 50, 22, m_ui.hGroupPosContainer, nullptr, nullptr, nullptr);
+            editX, baseY, editW, rowH, m_ui.hGroupPosContainer, nullptr, nullptr, nullptr);
 
-        newPt.hLine = UIBuilder::createSeparator(m_ui.hGroupPosContainer, 8, baseY + 24,
-                                                  Theme::EDIT_LEFT_LIMIT_RIGHT);
+        newPt.hLine = UIBuilder::createSeparator(m_ui.hGroupPosContainer,
+            DpiHelper::scale(8, m_currentDpi), lineY, editLeftLimitRight);
 
         FontManager::applyTo({ newPt.hEditCoord, newPt.hEditInterval }, m_fonts.content());
         m_clickPoints.push_back(newPt);
@@ -617,13 +734,10 @@ void MainWindow::onPickPosition()
 
 // ---------------------------------------------------------------------------
 //  mouseHookProc — static hook callback for position picking.
+//  Coordinate rows are created with DPI-scaled positions.
 // ---------------------------------------------------------------------------
 LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    // Retrieve the MainWindow instance from the hook's ExtraData — but since
-    // WH_MOUSE_LL doesn't support instance data, we use a global approach:
-    // the hook is only installed while picking, so we can access the
-    // singleton via the window's GWLP_USERDATA.
     HWND hWndMain = FindWindowW(L"AutoClickerWnd", L"AutoClicker");
     if (!hWndMain) return CallNextHookEx(nullptr, nCode, wParam, lParam);
 
@@ -643,25 +757,36 @@ LRESULT CALLBACK MainWindow::mouseHookProc(int nCode, WPARAM wParam, LPARAM lPar
         newPoint.interval = std::max(0, _wtoi(buf));
 
         int index = static_cast<int>(pThis->m_clickPoints.size()) + 1;
-        int baseY = 25 + (index - 1) * 30;
+
+        // DPI-scaled positions.
+        UINT dpi = pThis->m_currentDpi;
+        int baseY = DpiHelper::scale(Theme::COORD_ROW_START_Y, dpi)
+                  + (index - 1) * DpiHelper::scale(Theme::COORD_ROW_STEP, dpi);
+        int labelX = DpiHelper::scale(Theme::COORD_LABEL_X, dpi);
+        int labelW = DpiHelper::scale(Theme::COORD_LABEL_W, dpi);
+        int rowH   = DpiHelper::scale(Theme::COORD_ROW_H, dpi);
+        int editX  = DpiHelper::scale(Theme::COORD_EDIT_X, dpi);
+        int editW  = DpiHelper::scale(Theme::COORD_EDIT_W, dpi);
+        int lineY  = baseY + DpiHelper::scale(Theme::COORD_LINE_Y_OFFSET, dpi);
+        int editLeftLimitRight = DpiHelper::scale(Theme::EDIT_LEFT_LIMIT_RIGHT, dpi);
 
         // Coordinate label
         wsprintfW(buf, L"%d. (%d, %d)", index, newPoint.pos.x, newPoint.pos.y);
         newPoint.hEditCoord = CreateWindowW(L"static", buf,
             WS_CHILD | WS_VISIBLE | SS_LEFT,
-            10, baseY, 100, Theme::ELEMENT_HEIGHT,
+            labelX, baseY, labelW, rowH,
             pThis->m_ui.hGroupPosContainer, nullptr, nullptr, nullptr);
 
         // Interval edit
         wsprintfW(buf, L"%d", newPoint.interval);
         newPoint.hEditInterval = CreateWindowW(L"edit", buf,
             WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER,
-            110, baseY, static_cast<int>(Theme::EDIT_WIDTH * 0.8), Theme::EDIT_HEIGHT,
+            editX, baseY, editW, rowH,
             pThis->m_ui.hGroupPosContainer, nullptr, nullptr, nullptr);
 
         // Separator
         newPoint.hLine = UIBuilder::createSeparator(pThis->m_ui.hGroupPosContainer,
-            8, baseY + 24, Theme::EDIT_LEFT_LIMIT_RIGHT);
+            DpiHelper::scale(8, dpi), lineY, editLeftLimitRight);
 
         // Fonts
         FontManager::applyTo({ newPoint.hEditCoord, newPoint.hEditInterval },

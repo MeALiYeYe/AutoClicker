@@ -7,7 +7,12 @@
 //
 IDI_APP_ICON           ICON    "resources/app.ico"
 IDI_SMALL_ICON         ICON    "resources/small.ico"
+
 /////////////////////////////////////////////////////////////////////////////
+// Manifest (DPI awareness - PerMonitorV2)
+// RT_MANIFEST = 24, resource ID 1 (required for loader to find it)
+1 24 "app.manifest"
+
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////

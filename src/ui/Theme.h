@@ -1,7 +1,9 @@
 #pragma once
 // =============================================================================
 //  Theme.h - Centralized UI layout constants, colors, and font names.
-//  All dimensions in pixels; designed for a 420x640 window.
+//  All dimensions are design units at 96 DPI (100% scaling). They must be
+//  scaled by the actual display DPI using DpiHelper::scale() before use.
+//  Designed for a 420x640 window at 96 DPI.
 // =============================================================================
 
 #ifndef NOMINMAX
@@ -11,7 +13,7 @@
 
 namespace Theme
 {
-    // ---- Window ----
+    // ---- Window (96 DPI design units) ----
     constexpr int WINDOW_WIDTH  = 420;
     constexpr int WINDOW_HEIGHT = 640;
 
@@ -52,6 +54,18 @@ namespace Theme
     // ---- Special positions ----
     constexpr int EDIT_LEFT_LIMIT_RIGHT =
         static_cast<int>(MARGIN_X + GROUP_WIDTH - SMALL_GAP * 3 - EDIT_WIDTH - UNIT_WIDTH);
+
+    // ---- Coordinate row (dynamically created inside container) ----
+    constexpr int COORD_ROW_START_Y   = 25;   // Y offset from container top
+    constexpr int COORD_ROW_STEP      = 30;    // Y step per row
+    constexpr int COORD_LABEL_X       = 10;   // X of coordinate label
+    constexpr int COORD_LABEL_W       = 100;  // Width of coordinate label
+    constexpr int COORD_ROW_H         = 22;   // Height of coordinate row controls
+    constexpr int COORD_EDIT_X        = 130;  // X of interval edit box
+    constexpr int COORD_EDIT_W        = 50;   // Width of interval edit box
+    constexpr int COORD_EDIT_X_ALT    = 110;  // Alternate X (used in hook)
+    constexpr int COORD_EDIT_W_ALT    = 64;   // Alternate width (EDIT_WIDTH * 0.8)
+    constexpr int COORD_LINE_Y_OFFSET = 24;   // Y offset for separator line
 
     // ---- Colors (modern soft palette) ----
     constexpr COLORREF CLR_BG          = RGB(245, 247, 250);  // window background

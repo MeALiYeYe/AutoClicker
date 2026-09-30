@@ -36,6 +36,7 @@
     <ClInclude Include="src\core\ClickSettings.h"><Filter>Header Files\core</Filter></ClInclude>
     <ClInclude Include="src\core\ClickEngine.h"><Filter>Header Files\core</Filter></ClInclude>
     <ClInclude Include="src\ui\Theme.h"><Filter>Header Files\ui</Filter></ClInclude>
+    <ClInclude Include="src\ui\DpiHelper.h"><Filter>Header Files\ui</Filter></ClInclude>
     <ClInclude Include="src\ui\FontManager.h"><Filter>Header Files\ui</Filter></ClInclude>
     <ClInclude Include="src\ui\ProgressBar.h"><Filter>Header Files\ui</Filter></ClInclude>
     <ClInclude Include="src\ui\UIBuilder.h"><Filter>Header Files\ui</Filter></ClInclude>
@@ -53,6 +54,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\app.rc"><Filter>Resource Files</Filter></ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\app.manifest"><Filter>Resource Files</Filter></None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="src\resources\app.ico"><Filter>Resource Files</Filter></Image>

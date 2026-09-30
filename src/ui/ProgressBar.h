@@ -1,10 +1,12 @@
 #pragma once
 // =============================================================================
 //  ProgressBar.h - Custom owner-drawn gradient progress bar.
+//  DPI-aware: font size and corner radius are scaled by the current DPI.
 // =============================================================================
 
 #include <windows.h>
 #include "Theme.h"
+#include "DpiHelper.h"
 
 class ProgressBar
 {
@@ -12,15 +14,22 @@ public:
     void setPercent(int p) { percent = (p < 0) ? 0 : (p > 100) ? 100 : p; }
     int  getPercent() const { return percent; }
 
+    // Set the DPI for font scaling. Call before paint or on WM_DPICHANGED.
+    void setDpi(UINT dpi) { m_dpi = dpi; }
+
     // Paint the progress bar into the given HDC / HWND.
     void paint(HWND hWnd, HDC hdc) const
     {
         RECT rc;
         GetClientRect(hWnd, &rc);
 
+        // Scale corner radius by DPI.
+        int cornerRadius = DpiHelper::scale(8, m_dpi);
+
         // --- Background (rounded) ---
         HBRUSH hBrushBg = CreateSolidBrush(Theme::CLR_PROGRESS_BG);
-        HRGN   hRgn     = CreateRoundRectRgn(rc.left, rc.top, rc.right, rc.bottom, 8, 8);
+        HRGN   hRgn     = CreateRoundRectRgn(rc.left, rc.top, rc.right, rc.bottom,
+                                              cornerRadius, cornerRadius);
         SelectClipRgn(hdc, hRgn);
         FillRect(hdc, &rc, hBrushBg);
         DeleteObject(hBrushBg);
@@ -55,7 +64,8 @@ public:
         HBRUSH hNullBrush = static_cast<HBRUSH>(GetStockObject(HOLLOW_BRUSH));
         HPEN   hOldPen    = static_cast<HPEN>(SelectObject(hdc, hPen));
         HBRUSH hOldBrush  = static_cast<HBRUSH>(SelectObject(hdc, hNullBrush));
-        RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, 8, 8);
+        RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom,
+                  cornerRadius, cornerRadius);
         SelectObject(hdc, hOldPen);
         SelectObject(hdc, hOldBrush);
         DeleteObject(hPen);
@@ -67,8 +77,10 @@ public:
         wchar_t buf[16];
         swprintf_s(buf, L"%d%%", percent);
 
+        // DPI-scaled font size (14px at 96 DPI).
+        int fontSize = DpiHelper::scaleFont(14, m_dpi);
         HFONT hFont = CreateFontW(
-            14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+            fontSize, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
         HFONT hOldFont = static_cast<HFONT>(SelectObject(hdc, hFont));
@@ -82,5 +94,6 @@ public:
     }
 
 private:
-    int percent = 0;
+    int  percent = 0;
+    UINT m_dpi  = 96;
 };
