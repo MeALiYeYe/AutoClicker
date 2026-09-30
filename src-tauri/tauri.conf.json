@@ -4,9 +4,6 @@
   "version": "3.0.0",
   "identifier": "com.mealiyeye.autoclicker",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "devUrl": "",
     "frontendDist": "../src"
   },
   "app": {
@@ -24,7 +21,6 @@
         "transparent": true,
         "center": true,
         "shadow": true,
-        "theme": null,
         "visible": true
       }
     ],

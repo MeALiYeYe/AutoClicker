@@ -249,10 +249,10 @@ fn build_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .items(&[&show, &toggle, &quit])
         .build()?;
 
-    let icon = app.default_window_icon();
+    // `icon()` takes an owned Image, so clone the app's default icon.
     let mut tray = TrayIconBuilder::with_id("main-tray").menu(&menu).tooltip("AutoClicker");
-    if let Some(ic) = icon {
-        tray = tray.icon(ic);
+    if let Some(ic) = app.default_window_icon() {
+        tray = tray.icon(ic.clone());
     }
 
     tray.on_menu_event(|app, event| match event.id().as_ref() {
