@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
-use windows::core::w;
-use windows::Win32::Foundation::{HINSTANCE, HMODULE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::core::PCWSTR;
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_NOREPEAT};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -18,7 +18,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WNDCLASSW,
 };
 
-const CLASS_NAME: &windows::core::PCWSTR = w!("AutoClickerHotkeyWindow");
 const HOTKEY_ID: i32 = 1;
 
 /// Default hotkey: F6.
@@ -66,16 +65,23 @@ fn hotkey_thread(initial_vk: u32, rx: Receiver<u32>, current: Arc<AtomicU32>, on
     unsafe {
         let hmodule = GetModuleHandleW(None).unwrap_or_default();
 
+        // Build the class name as a UTF-16 buffer. Windows copies this string
+        // during RegisterClassW, but we leak it so the pointer stays valid for
+        // the lifetime of the thread.
+        let class_wide: &'static [u16] =
+            Box::leak("AutoClickerHotkeyWindow\0".encode_utf16().collect::<Vec<u16>>().into_boxed_slice());
+        let class_name = PCWSTR(class_wide.as_ptr());
+
         let mut wc = WNDCLASSW::default();
         wc.lpfnWndProc = Some(wnd_proc);
         wc.hInstance = HINSTANCE(hmodule.0);
-        wc.lpszClassName = *CLASS_NAME;
+        wc.lpszClassName = class_name;
         RegisterClassW(&wc);
 
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE::default(),
-            *CLASS_NAME,
-            None,
+            class_name,
+            PCWSTR::null(),
             WINDOW_STYLE::default(),
             0,
             0,
@@ -122,14 +128,9 @@ fn hotkey_thread(initial_vk: u32, rx: Receiver<u32>, current: Arc<AtomicU32>, on
                 }
             }
 
-            // Keep `current` authoritative in case a registration failed.
             let _ = current.load(Ordering::Relaxed);
 
             std::thread::sleep(Duration::from_millis(20));
         }
     }
 }
-
-/// Suppress "unused import" noise for HMODULE on some feature combinations.
-#[allow(dead_code)]
-fn _assert_types(_: HMODULE) {}
